@@ -1,8 +1,16 @@
-package view;
+package model;
 
 import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.Shape;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.geom.GeneralPath;
+import java.awt.image.BufferedImage;
+import java.util.ArrayList;
+import java.util.List;
+
 import javax.swing.Timer;
 
 /**
@@ -42,14 +50,23 @@ public class CannonBall implements ActionListener {
 	private double t;
 	
 	//The timer delay that the CannonGUI passes in.
-	private int theTime;
+	private int time;
 	
 	//The Y coordinate offset. Used to draw the ball right side up.
 	private int yOffset;
 	
+	private int ballDimension;
+	
+	private double tempX;
+	private double tempY;
+	private double prevX;
+	private double prevY;
+	private List<Shape> shapes;
+	
+	
 	/**
 	 * The CannonBall constructor. Takes in an angle theta (in radians) that will determine
-	 * the flight path of the mushroom. Initializes variables and starts a timer for this
+	 * the flight path of the CannonBall. Initializes variables and starts a timer for this
 	 * CannonBall object.
 	 * @param x is the X coordinate.
 	 * @param y is the Y coordinate.
@@ -57,13 +74,15 @@ public class CannonBall implements ActionListener {
 	 */
 	public CannonBall(double theta, int time, int yOffset, int velocity) {
 		this.yOffset = yOffset;
-		theTime = time;
+		this.time = time;
+		ballDimension = 10;
 		v_0 = velocity;
 		g = 9.8;
 		theTheta = theta;
 		v_x0 = v_0*Math.cos(theTheta);
 		v_y0 = v_0*Math.sin(theTheta);
-		timer = new Timer(theTime, this);
+		timer = new Timer(this.time, this);
+		shapes = new ArrayList<Shape>();
 		timer.start();
 	}
 	
@@ -74,13 +93,63 @@ public class CannonBall implements ActionListener {
 	 */
 	public void draw(Graphics g) {
 		//Cannon ball
-		g.fillOval((int)ballX - 5, (int)(yOffset - 10 - ballY), 10, 10);
+		g.fillOval((int)ballX - 5, (int)(yOffset - 10 - ballY), ballDimension, ballDimension);
 
 //		Show ball velocity in x direction
 //		g.fillOval((int)ballX,(int)yOffset - 10, 10, 10);
 		
 		//Show ball velocity in y direction
 //		g.fillOval(0, (int)(yOffset - ballY), 10, 10);
+	}
+
+	/**
+	 * Draws an explosion when the current CannonBall hits the ground (y < 0, timer > 0).
+	 * @param g is the Graphics object. 
+	 * @param in is the BufferedImage (explosion) to be drawn. 
+	 */
+	public void boom(Graphics g, BufferedImage in) {
+		g.drawImage(in, (int)ballX - in.getWidth()/2, (int)(ballY + 650), null);
+	}
+	
+	/**
+	 * 
+	 * @param g
+	 */
+	public void showXAndY(Graphics g) {
+		
+		//Parallel to x plane
+		g.drawLine(0,(int) (yOffset - ballY - ballDimension/2), 
+				(int) ballX, (int)(yOffset - ballY - ballDimension/2));
+		
+		//Parallel to y plane
+		g.drawLine((int) ballX, yOffset, (int) ballX, (int) (yOffset - ballY));
+	}
+	
+	/**
+	 * 
+	 * @param g
+	 */
+	public void showPath(Graphics g) {
+		 //Create a GeneralPath object.
+        final GeneralPath penPath = new GeneralPath();
+        ((Graphics2D) g).setRenderingHint(RenderingHints.KEY_ANTIALIASING, 
+                RenderingHints.VALUE_ANTIALIAS_ON); 
+        //Create a shape that will be set equal to the object so I can
+        //add the shape to the array of shapes.
+        final Shape penShape = penPath; 
+        penPath.moveTo(tempX, yOffset - tempY - ballDimension/2); //Start line at initial x and y
+        penPath.lineTo(ballX, yOffset - ballY - ballDimension/2); //Move line to new x and y
+        tempX = ballX; //Reset initial x
+        tempY = ballY; //Reset initial y
+        shapes.add(penShape);
+        if(ballY < 0 && time > 0) {
+        	penPath.closePath();
+        }
+        
+        //Loop through list of shapes and draw each one to create the path
+        for(int i = 0; i < shapes.size(); i++) {
+        	((Graphics2D) g).draw(shapes.get(i));
+        } 
 	}
 	
 	
@@ -101,6 +170,14 @@ public class CannonBall implements ActionListener {
 		return ballX;
 	}
 	
+	/**
+	 * Returns t
+	 * @return The current value of t
+	 */
+	public double getTime() {
+		return t;
+	}
+	
 	
 	/**
 	 * The actionPerformed method is used to re-calculate the ball X and Y coordinates as time passes by.
@@ -108,7 +185,7 @@ public class CannonBall implements ActionListener {
 	@Override
 	public void actionPerformed(ActionEvent e) {
 		//Increment t by a decimal amount to smooth the animation
-		t = t + .3;
+		t = t + .15;
 		
 		//x = x_0 + vx0 * t. Here x_0 is implied to be 0 since we are firing from the ground.
 		ballX = (v_x0 * t); 
